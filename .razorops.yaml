@@ -1,20 +1,19 @@
-version: v2
+variables:
+  - BUNDLE_PATH=$(CI_WORKSPACE)/vendor/bundle
 
 tasks:
-  unit-test:
-    steps:
-    - checkout
-    - commands: 
-      - docker-compose down
-      - docker system prune -f
-    - commands:
-      - docker-compose build
-      - docker-compose up -d
-      
-      - docker-compose exec -T web dockerize -wait tcp://db:5432
+  restore-bundle:
+    type: restore
+    keys:
+      - bundle-[[ checksum "Gemfile.lock" ]]
+      - bundle-cache-[[ .RepoBranch ]]
 
-      - docker-compose exec -T web rake nuke_db
-      - docker-compose exec -T web bundle exec rspec
-    
-    - run: docker-compose down
-      when: always
+  deploy-to-heroku:
+    image: buildpack-deps:trusty
+    commands:
+      - git push https://heroku:$HEROKU_API_KEY@git.heroku.com/$HEROKU_APP_NAME.git master
+
+workflow:
+  - name: staging
+    tasks: [deploy-to-heroku]
+    when: branch == "master"
